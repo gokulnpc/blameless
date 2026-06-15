@@ -285,8 +285,8 @@ function render() {
 }
 
 Promise.all([
-  fetch("dashboard.json").then(r => r.json()),
-  fetch("profiles.json").then(r => r.json()),
+  fetch("dashboard.json?v=" + Date.now()).then(r => r.json()),
+  fetch("profiles.json?v=" + Date.now()).then(r => r.json()),
 ]).then(([dd, profiles]) => {
   const requested = getLogin();
   const top15 = dd.engineers.slice(0, 15).map(e => e.login);

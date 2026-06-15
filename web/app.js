@@ -80,7 +80,7 @@ function dims(e) {
   return out;
 }
 
-fetch("dashboard.json")
+fetch("dashboard.json?v=" + Date.now())
   .then(r => r.json())
   .then(d => { DATA = d; render(d); })
   .catch(e => { document.body.innerHTML = `<pre style="color:#c44;padding:30px;font-family:Inter,sans-serif">Failed to load dashboard.json: ${esc(e)}</pre>`; });
