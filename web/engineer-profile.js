@@ -96,7 +96,7 @@ function render() {
   const prTotal = p.prs.length;
   const nCited = p.prs.filter(x => x.verified).length;
   const first = (e.name || e.login).split(" ")[0];
-  const prCaption = `Reconstructed from ${first}'s real aggregate stats — ${F.merged_prs} merged PRs, ${F.bugfix_prs} fixes (${F.bugfix_with_tests} shipping tests), ${F.cleanup_prs} cleanups, ${F.churned_prs} with a documented later fix, ${F.reverted_prs} reverted. The ${nCited} PRs cited in the scoring evidence are marked ★ and link to the verified GitHub PR; the rest are representative of the mix.`;
+  const prCaption = `Every one of ${first}'s ${F.merged_prs} merged PRs in the window — real titles, sizes and flags straight from the GitHub data: ${F.bugfix_prs} fixes (${F.bugfix_with_tests} shipping tests), ${F.cleanup_prs} cleanups, ${F.churned_prs} with a documented later fix, ${F.reverted_prs} reverted. Every row links to the real PR; the ${nCited} cited in the scoring evidence are marked ★.`;
 
   const counts = { all: p.prs.length, feat: 0, fix: 0, refactor: 0, chore: 0 };
   p.prs.forEach(x => { counts[x.type] = (counts[x.type] || 0) + 1; });

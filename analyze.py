@@ -117,7 +117,7 @@ def human_reviewers(pr, accounts):
 W30 = 30 * 86400
 
 
-def build_indices(universe):
+def build_indices(universe, accounts):
     """Reverse-reference + revert indices.
 
     Corrective churn is HIGH-CONFIDENCE only: a later bug/fix PR that *explicitly
@@ -128,15 +128,16 @@ def build_indices(universe):
     """
     refs_of = {pr["number"]: S.references(pr) for pr in universe}
 
-    referenced_by = defaultdict(list)   # target_num -> [(epoch, qnum, is_fix, is_regression, author)]
+    referenced_by = defaultdict(list)   # target -> [(epoch, qnum, is_fix, is_regression, author, human)]
     for pr in universe:
         epoch = parse_iso(pr["mergedAt"]).timestamp()
         fix = S.is_bugfix(pr)
         reg = ("regression" in (pr.get("bodyText", "") or "").lower()
                or S.is_revert_pr(pr))
         qa = (pr.get("author") or {}).get("login")
+        q_human = is_human(qa, accounts)
         for tgt in refs_of[pr["number"]]:
-            referenced_by[tgt].append((epoch, pr["number"], fix, reg, qa))
+            referenced_by[tgt].append((epoch, pr["number"], fix, reg, qa, q_human))
 
     revert_targets = {}
     for pr in universe:
@@ -148,23 +149,25 @@ def build_indices(universe):
 
 
 def corrective_followup(pr, referenced_by):
-    """(churned, tier, example_pr): a DIFFERENT engineer's fix PR that explicitly references
-    this PR within 30 days. Self-fixes are excluded -- responsible fast iteration by the same
-    author is not post-merge instability."""
+    """(churned, tier, fixer_pr, fixer_login, days): a DIFFERENT HUMAN engineer's fix PR that
+    explicitly references this PR within 30 days. Self-fixes are excluded (responsible fast
+    iteration by the same author is not instability), and bot/org fixers (e.g. posthog[bot])
+    are excluded -- "a different engineer" means a human, per the project's exclude-bots rule."""
     epoch = parse_iso(pr["mergedAt"]).timestamp()
     author = (pr.get("author") or {}).get("login")
-    best = None  # (priority, tier, qnum)
-    for qe, qn, qfix, qreg, qa in referenced_by.get(pr["number"], ()):
+    best = None  # (priority, tier, qnum, qa, days)
+    for qe, qn, qfix, qreg, qa, qhuman in referenced_by.get(pr["number"], ()):
         if qe <= epoch or qe - epoch > W30 or not qfix:
             continue
-        if not qa or qa == author:           # cross-author only
+        if not qa or qa == author or not qhuman:   # cross-author, human fixer only
             continue
-        cand = (2, "Very high", qn) if qreg else (1, "High", qn)
+        days = round((qe - epoch) / 86400)
+        cand = (2, "Very high", qn, qa, days) if qreg else (1, "High", qn, qa, days)
         if best is None or cand[0] > best[0]:
             best = cand
     if best:
-        return True, best[1], best[2]
-    return False, None, None
+        return True, best[1], best[2], best[3], best[4]
+    return False, None, None, None, None
 
 
 # --------------------------------------------------------------------------- #
@@ -209,7 +212,7 @@ def main():
     print(f"Active cohort (>= {RANK_MIN} PRs): {len(cohort)} engineers "
           f"(normalization cohort >= {NORM_MIN}).")
 
-    referenced_by, revert_targets = build_indices(universe)
+    referenced_by, revert_targets = build_indices(universe, accounts)
 
     # ---- review graph (humans only; reviews on OTHERS' PRs) ----
     reviews_given = defaultdict(int)         # distinct PRs reviewed
@@ -244,9 +247,9 @@ def main():
 
         churn_hits, revert_hits = [], []
         for p in prs:
-            churned, tier, qn = corrective_followup(p, referenced_by)
+            churned, tier, qn, by, days = corrective_followup(p, referenced_by)
             if churned:
-                churn_hits.append((p["number"], qn, tier))
+                churn_hits.append((p["number"], qn, tier, by, days))
             if p["number"] in revert_targets:
                 revert_hits.append((p["number"], revert_targets[p["number"]]))
 
@@ -429,7 +432,71 @@ def main():
     OUT.write_text(json.dumps(dashboard, indent=2))
     print(f"Wrote {OUT} ({OUT.stat().st_size // 1024} KB, {len(engineers)} engineers).")
 
+    # Per-engineer drill-down data for the top 15 (consumed by web/engineer-profile.js).
+    profiles = build_profiles(engineers[:15], by_author, disp, revert_targets)
+    profiles_out = OUT.parent / "profiles.json"
+    profiles_out.write_text(json.dumps(profiles))
+    print(f"Wrote {profiles_out} ({profiles_out.stat().st_size // 1024} KB, {len(profiles)} profiles).")
+
     print_top5(engineers, volume_rank, cohort, pr_count)
+
+
+# Evidence-line labels, in the fixed order build_evidence emits them.
+EV_LABELS = ["Reviewability", "Post-merge health", "Tests", "Review influence"]
+
+
+def profile_type(pr):
+    """Map a PR to one of feat/fix/refactor/chore for the profile PR table filters."""
+    t = S.conventional_type(pr.get("title", ""))
+    if t in ("feat", "fix", "refactor"):
+        return t
+    if t is None and S.is_bugfix(pr):
+        return "fix"
+    return "chore"
+
+
+def build_profiles(top, by_author, disp, revert_targets):
+    """Build web/profiles.json: per-engineer PR-level drill-down for the top engineers.
+
+    Every field is derived from the cached real data so the daily refresh keeps this in sync
+    with dashboard.json. Schema matches web/engineer-profile.js exactly.
+    """
+    out = {}
+    for e in top:
+        login = e["login"]
+        d = disp[login]
+        churn_src = {h[0] for h in d["churn_hits"]}        # this engineer's PRs that were churned
+
+        cited, ev_out = set(), []
+        for i, ev in enumerate(e["evidence"]):
+            nums = [p["number"] for p in ev["prs"]]
+            cited.update(nums)
+            ev_out.append({"label": EV_LABELS[i] if i < len(EV_LABELS) else "More",
+                           "text": ev["text"], "prs": nums})
+
+        prs_out = []
+        for p in by_author[login]:
+            files = S.files_of(p)
+            prs_out.append({
+                "type": profile_type(p),
+                "hasTests": any(S.is_test_path(f) for f in files),
+                "size": (p.get("additions") or 0) - (p.get("deletions") or 0),
+                "files": p.get("changedFiles") or 0,
+                "date": int(parse_iso(p["mergedAt"]).timestamp() * 1000),
+                "number": p["number"],
+                "verified": p["number"] in cited,
+                "churned": p["number"] in churn_src,
+                "reverted": p["number"] in revert_targets,
+                "title": p.get("title", ""),
+            })
+
+        post = [{"src": cn, "fixedBy": qn,
+                 "confidence": "High" if tier in ("High", "Very high") else tier,
+                 "by": by, "days": int(days)}
+                for (cn, qn, tier, by, days) in d["churn_hits"]]
+
+        out[login] = {"login": login, "prs": prs_out, "postMerge": post, "evidence": ev_out}
+    return out
 
 
 def _json_facts(d):
@@ -462,7 +529,7 @@ def build_evidence(login, d, irank, vrank, cohort_n, dims):
 
     # Post-merge health (high-confidence: later fix PR explicitly references the original)
     if d["churn_hits"]:
-        cn, qn, tier = d["churn_hits"][0]
+        cn, qn, tier = d["churn_hits"][0][:3]
         ev.append({
             "text": (f"Post-merge health: {len(d['churn_hits'])} of {n} PRs "
                      f"({round(d['churn_rate']*100,1)}%) were fixed by a DIFFERENT engineer's "
