@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Raw GraphQL cache (large; regenerate with `python fetch.py`)
+data/raw/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BlameLess — Engineering Impact Dashboard · PostHog/posthog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://avatars.githubusercontent.com">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="bl-header">
+    <div class="bl-header-main">
+      <div class="bl-eyebrow">
+        <span class="bl-eyebrow-brand">
+          <span class="bl-eyebrow-dot"></span>BlameLess
+        </span>
+        <span class="bl-eyebrow-sep">/</span>
+        <span>Engineering Impact</span>
+      </div>
+      <h1 class="bl-title">The engineers moving<br>PostHog forward</h1>
+      <p class="bl-subtitle">Ranked by reviewable, durable, well-tested change over the last 90 days,
+        <strong>not raw PR volume.</strong> Every number drills down to the real pull requests behind it.</p>
+    </div>
+    <div class="bl-header-meta">
+      <div class="bl-repo" id="repo-label">PostHog/posthog</div>
+      <div class="bl-report-label">90-day impact report</div>
+    </div>
+  </header>
+
+  <div id="meta-strip" class="bl-chips"></div>
+
+  <section id="slideshow" class="bl-slideshow" aria-roledescription="carousel" aria-label="How we measure impact" tabindex="0">
+    <div class="bl-slideshow-top">
+      <div class="bl-slideshow-label">
+        <span class="bl-slideshow-label-dot"></span>
+        How we measure impact
+        <span class="bl-slideshow-label-muted">/</span>
+        <span class="bl-slideshow-label-faint">the short version</span>
+      </div>
+      <span id="slide-counter" class="bl-slide-counter">01 / 05</span>
+    </div>
+    <div id="slide-stage" class="bl-slide-stage"></div>
+    <div class="bl-slide-controls">
+      <button id="slide-prev" class="bl-slide-btn" aria-label="Previous slide">&larr;</button>
+      <div id="slide-dots" class="bl-slide-dots"></div>
+      <button id="slide-next" class="bl-slide-btn" aria-label="Next slide">&rarr;</button>
+    </div>
+  </section>
+
+  <section id="methodology-link" class="bl-methodology-section"></section>
+
+  <section class="bl-top5-section">
+    <div class="bl-section-eyebrow">The top 5</div>
+    <h2 class="bl-section-title">Five most impactful engineers</h2>
+    <div id="lead-card"></div>
+    <div id="tie-banners" class="bl-tie-banners"></div>
+    <div id="impact-grid" class="bl-impact-grid"></div>
+  </section>
+
+  <section class="bl-supporting-section">
+    <div class="bl-section-eyebrow">Ranks 6–15</div>
+    <h2 class="bl-section-title">Supporting cast</h2>
+    <p class="bl-section-note">Each cell is a cohort percentile (0–100, notch = median). Click any dimension for the sub-metrics behind it.</p>
+    <div class="bl-table-wrap bl-scroll">
+      <table id="supporting" class="bl-supporting-table"></table>
+    </div>
+  </section>
+
+  <footer id="footer" class="bl-footer"></footer>
+</div>
+
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card" id="modal-card">
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+name: Refresh BlameLess dashboard
+
+# Daily re-fetch of PostHog/posthog PRs, re-score, and redeploy the static site to the
+# gh-pages branch so the dashboard's 90-day window stays current.
+#
+# ENABLE AFTER the initial manual deploy works:
+#   1. Push this repo to GitHub and confirm https://<user>.github.io/blameless/ is live
+#      (Pages source = gh-pages branch, "/" root).
+#   2. This workflow then keeps it fresh. Run it once manually via the "Actions" tab
+#      ("Run workflow") to verify, then let the daily cron take over.
+#
+# Uses the built-in GITHUB_TOKEN (read-only for the public PostHog repo + write to this
+# repo's gh-pages). If you ever hit the Actions rate limit, add a PAT as secret BLAMELESS_PAT
+# and set GH_TOKEN below to ${{ secrets.BLAMELESS_PAT }}.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # daily at 06:17 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: blameless-refresh
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests certifi
+
+      - name: Fetch → classify → analyze
+        run: |
+          python fetch.py --refresh
+          python classify.py
+          python analyze.py
+
+      - name: Publish web/ to gh-pages
+        run: |
+          site="$(mktemp -d)"
+          cp -r web/. "$site/"
+          touch "$site/.nojekyll"
+          cd "$site"
+          git init -q -b gh-pages
+          git config user.name  "blameless-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Refresh dashboard ($(date -u +%Y-%m-%dT%H:%MZ))"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
