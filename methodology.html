@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Methodology &amp; roadmap — BlameLess</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="bl-method-page">
+  <a href="index.html" class="bl-back-link">&larr; Back to dashboard</a>
+
+  <div class="bl-method-intro">
+    <div class="bl-section-eyebrow">Reference</div>
+    <h1 class="bl-section-title" style="font-size:32px">Methodology &amp; roadmap</h1>
+    <p class="bl-subtitle" style="max-width:660px">Exactly how the impact score is calculated, in plain language, plus where the model is headed. Every number on the dashboard drills back to the real GitHub PRs behind it.</p>
+  </div>
+
+  <div class="bl-method-sections">
+    <section class="bl-method-card">
+      <div class="bl-method-card-head"><span class="bl-method-num">01</span><h2>What we measure &amp; why</h2></div>
+      <p>We rank engineers by the <b>quality and durability of the change they ship</b> over 90 days — not how many PRs they open. The goal is to surface impact that raw volume hides: work that's easy to review, stays stable after it merges, and comes with real tests. The headline takeaway, by design, is that the busiest authors are usually not the most impactful.</p>
+    </section>
+
+    <section class="bl-method-card">
+      <div class="bl-method-card-head"><span class="bl-method-num">02</span><h2>Data &amp; scope</h2></div>
+      <p id="data-scope">Built from merged pull requests on <b>PostHog/posthog</b> over a rolling <b>90-day window</b>. Every engineer with <b>≥3 merged PRs</b> is scored against the active cohort.</p>
+      <p class="sm">Bots and non-user accounts are excluded. Every sub-metric is a <b>rate or median</b> drawn from real PR metadata — never a raw total (except Process Influence, which legitimately scales with review volume).</p>
+    </section>
+
+    <section class="bl-method-card">
+      <div class="bl-method-card-head"><span class="bl-method-num">03</span><h2>The five signals, in plain words</h2></div>
+      <div class="bl-signal-list" id="signals"></div>
+      <p class="sm" style="margin-top:18px">Weights re-normalize over the five signals that can be computed from real data; each engineer is ranked against the whole cohort on every signal.</p>
+    </section>
+
+    <section class="bl-method-card">
+      <div class="bl-method-card-head"><span class="bl-method-num">04</span><h2>How a score is built</h2></div>
+      <div class="bl-steps">
+        <div class="bl-step"><span class="bl-step-num">1</span><span>Each sub-metric is <b>percentile-ranked</b> across the active cohort.</span></div>
+        <div class="bl-step"><span class="bl-step-num">2</span><span>A dimension score is the <b>weighted mean</b> of its sub-metric percentiles.</span></div>
+        <div class="bl-step"><span class="bl-step-num">3</span><span>The impact score is the <b>weighted sum</b> of dimension scores, scaled to 0–100.</span></div>
+      </div>
+      <p class="sm">Small-sample rates are regressed toward the cohort mean (empirical-Bayes shrinkage, K=20) so a handful of lucky PRs can't outrank a large body of work. Scores are <b>relative</b> to PostHog's active engineers, not an absolute grade.</p>
+    </section>
+
+    <section class="bl-method-card">
+      <div class="bl-method-card-head"><span class="bl-method-num">05</span><h2>What we deliberately don't measure &amp; why</h2></div>
+      <p>Plenty of real impact never lands in a PR — architecture, mentorship, on-call, design decisions. We don't invent scores for those; if we can't measure it from real data, we say so. Dimensions that can't be computed are excluded and the visible weights re-normalize over the five that can.</p>
+      <div class="bl-not-measured" id="not-measured"></div>
+    </section>
+
+    <section class="bl-method-card">
+      <div class="bl-method-card-head"><span class="bl-method-num">06</span><h2>Limitations &amp; how to read the ranks</h2></div>
+      <div style="display:flex;flex-direction:column;gap:13px;margin-top:14px;font-size:13.5px;line-height:1.65;color:var(--muted)">
+        <p style="margin:0"><b class="amber">A low rank is NOT a low-value engineer.</b> Scores are relative to PostHog's active cohort over 90 days — a standing on PR-visible signals, not an absolute grade of a person.</p>
+        <p style="margin:0"><b>#1 is a clear standout; ranks 2–5 are statistically close.</b> They sit within a few points and can reorder with small method changes — don't over-read 2nd vs 5th. PR counts are shown so sample size stays visible.</p>
+        <p style="margin:0"><b>"Code Reduction &amp; Cleanup" is not a quality grade.</b> It measures net removal and cleanup; a low score just means an engineer ships additive feature work, not that their code is worse.</p>
+        <p style="margin:0"><b>High volume isn't penalized as low value.</b> The heaviest-volume authors land mid-pack on impact, yet are often the cohort's heaviest reviewers and on-call responders — senior glue work this PR-only model under-weights.</p>
+      </div>
+    </section>
+
+    <section class="bl-method-card">
+      <div class="bl-method-card-head"><span class="bl-method-num">07</span><h2>How to validate it yourself</h2></div>
+      <p>Every number drills to the real work behind it. <b>Click any percentile bar</b> for the sub-metrics, or open an engineer's <b>full profile</b> from the dashboard to verify their merged PRs.</p>
+      <p class="sm">Post-merge corrective churn counts only when a <b>different engineer's</b> fix PR explicitly references the original within 30 days; self-fixes and same-file coincidences are excluded as too noisy to be fair. That makes the post-merge signal a floor, not a full accounting.</p>
+    </section>
+
+    <section class="bl-roadmap">
+      <span class="bl-roadmap-badge">What's next</span>
+      <h2>Peer review, rewarded — an idea we're exploring</h2>
+      <p>Code review is the highest-leverage thing an engineer does and the hardest to measure, so this model under-weights it today. The direction: make thorough review a first-class, rewarded signal — an engineer who gives a substantive review (catches a real correctness issue, suggests a materially better approach, unblocks a teammate) earns recognition for it.</p>
+      <p style="margin:16px 0 12px;font-size:14px;line-height:1.6;color:var(--ink2);font-weight:600">The hard part is incentive design, and we'd want to get it right before shipping:</p>
+      <div class="bl-roadmap-bullets">
+        <div class="bl-roadmap-bullet"><span class="bl-roadmap-bullet-dot"></span><span><b>Reward the reviewer; don't penalize the author.</b> A bug caught in review is the process succeeding — it never shipped. Docking the author would discourage opening PRs and attempting hard work, and would reintroduce the blame this project is built to avoid.</span></div>
+        <div class="bl-roadmap-bullet"><span class="bl-roadmap-bullet-dot"></span><span><b>Reserve negative signals for regressions that actually reached production,</b> framed as area-health rather than personal fault — the way the post-merge signal already works.</span></div>
+        <div class="bl-roadmap-bullet"><span class="bl-roadmap-bullet-dot"></span><span><b>Guard against gaming.</b> Points-for-catching can devolve into nitpick-farming or reciprocal flagging, so "substantive" must be defined tightly, and the output stays a team-health signal and conversation-starter — never a leaderboard or a comp input.</span></div>
+      </div>
+      <p>Done carefully, this turns the post-merge signal from something we infer into something the team practices — and rewards the senior "glue work" the PR-only view misses today.</p>
+    </section>
+
+    <a href="index.html" class="bl-method-back">&larr; Back to the dashboard</a>
+  </div>
+</div>
+<script src="methodology.js"></script>
+</body>
+</html>
