@@ -20,7 +20,7 @@ document.getElementById("signals").innerHTML = SIGNALS.map(s => `
     <span class="bl-signal-desc">${esc(s.desc)}</span>
   </div>`).join("");
 
-fetch("dashboard.json")
+fetch("dashboard.json?v=" + Date.now())
   .then(r => r.json())
   .then(d => {
     const t = d.totals;
